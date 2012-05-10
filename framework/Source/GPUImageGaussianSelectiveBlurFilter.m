@@ -21,7 +21,7 @@ NSString *const kGPUImageGaussianSelectiveBlurFragmentShaderString = SHADER_STRI
      lowp vec4 blurredImageColor = texture2D(inputImageTexture2, textureCoordinate2);
      blurredImageColor = vec4(vec3(blurredImageColor.rgb) * blurOpacity, 1.0);
      
-     lowp float d = distance(textureCoordinate, excludeCirclePoint);
+     lowp float d = distance(textureCoordinate2, excludeCirclePoint);
      
      gl_FragColor = mix(sharpImageColor, blurredImageColor, smoothstep(excludeCircleRadius - excludeBlurSize, excludeCircleRadius, d));
  }
