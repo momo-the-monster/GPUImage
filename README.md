@@ -181,30 +181,34 @@ Documentation is generated from header comments using appledoc. To build the doc
   - *center*: The center about which to apply the pixellation, defaulting to (0.5, 0.5)
   - *pixelSize*: The fractional pixel size, split into width and height components. The default is (0.05, 0.05)
 
+- **GPUImageCrosshatchFilter**: This converts an image into a black-and-white crosshatch pattern
+  - *crossHatchSpacing*: The fractional width of the image to use as the spacing for the crosshatch. The default is 0.03.
+  - *lineWidth*: A relative width for the crosshatch lines. The default is 0.003.
+
 - **GPUImageSobelEdgeDetectionFilter**: Sobel edge detection, with edges highlighted in white
-  - *imageWidthFactor*: 
-  - *imageHeightFactor*: These parameters affect the visibility of the detected edges
+  - *texelWidth*: 
+  - *texelHeight*: These parameters affect the visibility of the detected edges
 
 - **GPUImageCannyEdgeDetectionFilter**: This uses a Gaussian blur before applying a Sobel operator to highlight edges
-  - *imageWidthFactor*: 
-  - *imageHeightFactor*: These parameters affect the visibility of the detected edges
+  - *texelWidth*: 
+  - *texelHeight*: These parameters affect the visibility of the detected edges
   - *blurSize*: A multiplier for the prepass blur size, ranging from 0.0 on up, with a default of 1.0
   - *threshold*: Any edge above this threshold will be black, and anything below white. Ranges from 0.0 to 1.0, with 0.5 as the default
 
 - **GPUImageSketchFilter**: Converts video to look like a sketch. This is just the Sobel edge detection filter with the colors inverted
   - *intensity*: The degree to which the original image colors are replaced by the detected edges (0.0 - 1.0, with 1.0 as the default)
-  - *imageWidthFactor*: 
-  - *imageHeightFactor*: These parameters affect the visibility of the detected edges
+  - *texelWidth*: 
+  - *texelHeight*: These parameters affect the visibility of the detected edges
 
 - **GPUImageToonFilter**: This uses Sobel edge detection to place a black border around objects, and then it quantizes the colors present in the image to give a cartoon-like quality to the image.
-  - *imageWidthFactor*: 
-  - *imageHeightFactor*: These parameters affect the visibility of the detected edges
+  - *texelWidth*: 
+  - *texelHeight*: These parameters affect the visibility of the detected edges
   - *threshold*: The sensitivity of the edge detection, with lower values being more sensitive. Ranges from 0.0 to 1.0, with 0.2 as the default
   - *quantizationLevels*: The number of color levels to represent in the final image. Default is 10.0
 
 - **GPUImageSmoothToonFilter**: This uses a similar process as the GPUImageToonFilter, only it precedes the toon effect with a Gaussian blur to smooth out noise.
-  - *imageWidthFactor*: 
-  - *imageHeightFactor*: These parameters affect the visibility of the detected edges
+  - *texelWidth*: 
+  - *texelHeight*: These parameters affect the visibility of the detected edges
   - *blurSize*: A multiplier for the prepass blur size, ranging from 0.0 on up, with a default of 0.5
   - *threshold*: The sensitivity of the edge detection, with lower values being more sensitive. Ranges from 0.0 to 1.0, with 0.2 as the default
   - *quantizationLevels*: The number of color levels to represent in the final image. Default is 10.0

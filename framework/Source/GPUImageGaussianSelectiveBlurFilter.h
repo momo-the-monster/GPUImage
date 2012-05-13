@@ -12,5 +12,6 @@
 @property (readwrite, nonatomic) CGPoint excludeCirclePoint;
 @property (readwrite, nonatomic) CGFloat excludeBlurSize;
 @property (readwrite, nonatomic) CGFloat blurOpacity;
+@property (readwrite, nonatomic) CGFloat blurSize;
 
 @end

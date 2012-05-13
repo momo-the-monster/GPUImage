@@ -94,7 +94,11 @@
         case GPUIMAGE_CROSSHATCH:
         {
             self.title = @"Crosshatch";
-            self.filterSettingsSlider.hidden = YES;
+            self.filterSettingsSlider.hidden = NO;
+            
+            [self.filterSettingsSlider setValue:0.03];
+            [self.filterSettingsSlider setMinimumValue:0.01];
+            [self.filterSettingsSlider setMaximumValue:0.06];
             
             filter = [[GPUImageCrosshatchFilter alloc] init];
         }; break;
@@ -653,6 +657,13 @@
             
             filter = [[GPUImageBoxBlurFilter alloc] init];
 		}; break;
+        case GPUIMAGE_MEDIAN:
+        {
+            self.title = @"Median";
+            self.filterSettingsSlider.hidden = YES;
+            
+            filter = [[GPUImageMedianFilter alloc] init];
+		}; break;
         case GPUIMAGE_GAUSSIAN_SELECTIVE:
         {
             self.title = @"Selective Blur";
@@ -727,14 +738,19 @@
         
         if (filterType == GPUIMAGE_HISTOGRAM)
         {
+            // I'm adding an intermediary filter because glReadPixels() requires something to be rendered for its glReadPixels() operation to work
+            [videoCamera removeTarget:filter];
+            GPUImageGammaFilter *gammaFilter = [[GPUImageGammaFilter alloc] init];
+            [videoCamera addTarget:gammaFilter];
+            [gammaFilter addTarget:filter];
+
             GPUImageHistogramGenerator *histogramGraph = [[GPUImageHistogramGenerator alloc] init];
             
             [histogramGraph forceProcessingAtSize:CGSizeMake(256.0, 330.0)];
+            [filter addTarget:histogramGraph];
             
             GPUImageAlphaBlendFilter *blendFilter = [[GPUImageAlphaBlendFilter alloc] init];
-            blendFilter.mix = 0.75;
-            
-            [filter addTarget:histogramGraph];
+            blendFilter.mix = 0.75;            
             
             [videoCamera addTarget:blendFilter];
             [histogramGraph addTarget:blendFilter];
@@ -781,6 +797,7 @@
         case GPUIMAGE_UNSHARPMASK: [(GPUImageUnsharpMaskFilter *)filter setIntensity:[(UISlider *)sender value]]; break;
 //        case GPUIMAGE_UNSHARPMASK: [(GPUImageUnsharpMaskFilter *)filter setBlurSize:[(UISlider *)sender value]]; break;
         case GPUIMAGE_GAMMA: [(GPUImageGammaFilter *)filter setGamma:[(UISlider *)sender value]]; break;
+        case GPUIMAGE_CROSSHATCH: [(GPUImageCrosshatchFilter *)filter setCrossHatchSpacing:[(UISlider *)sender value]]; break;
         case GPUIMAGE_POSTERIZE: [(GPUImagePosterizeFilter *)filter setColorLevels:round([(UISlider*)sender value])]; break;
 		case GPUIMAGE_HAZE: [(GPUImageHazeFilter *)filter setDistance:[(UISlider *)sender value]]; break;
 		case GPUIMAGE_THRESHOLD: [(GPUImageLuminanceThresholdFilter *)filter setThreshold:[(UISlider *)sender value]]; break;
