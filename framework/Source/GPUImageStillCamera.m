@@ -140,12 +140,17 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         }
         else
         {
-            [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+            // This is a workaround for the corrupt images that are sometimes returned when taking a photo with the front camera and using the iOS 5.0 texture caches
+            AVCaptureDevicePosition currentCameraPosition = [[videoInput device] position];
+            if ( (currentCameraPosition != AVCaptureDevicePositionFront) || (![GPUImageOpenGLESContext supportsFastTextureUpload]))
+            {
+                [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+            }
         }        
 
 //        report_memory(@"After filter processing");
         
-        NSData *dataForJPEGFile = nil;
+        __strong NSData *dataForJPEGFile = nil;
         @autoreleasepool {
             UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutput];
             

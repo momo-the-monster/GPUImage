@@ -119,6 +119,19 @@ NSString *const kGPUImageTwoInputTextureVertexShaderString = SHADER_STRING
     }
 }
 
+- (void)setInputSize:(CGSize)newSize atIndex:(NSInteger)textureIndex;
+{
+    if (textureIndex == 0)
+    {
+        [super setInputSize:newSize atIndex:textureIndex];
+        
+        if (CGSizeEqualToSize(newSize, CGSizeZero))
+        {
+            hasSetFirstTexture = NO;
+        }
+    }
+}
+
 - (void)setInputRotation:(GPUImageRotationMode)newInputRotation atIndex:(NSInteger)textureIndex;
 {
     if (textureIndex == 0)

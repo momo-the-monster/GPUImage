@@ -1,6 +1,5 @@
 #import "GPUImageOutput.h"
-
-@class GPUImageFilter;
+#import "GPUImageFilter.h"
 
 @interface GPUImageFilterGroup : GPUImageOutput <GPUImageInput>
 {
@@ -9,6 +8,7 @@
 
 @property(readwrite, nonatomic, strong) GPUImageOutput<GPUImageInput> *terminalFilter;
 @property(readwrite, nonatomic, strong) NSArray *initialFilters;
+@property(readwrite, nonatomic, strong) GPUImageOutput<GPUImageInput> *inputFilterToIgnoreForUpdates; 
 
 // Filter management
 - (void)addFilter:(GPUImageOutput<GPUImageInput> *)newFilter;

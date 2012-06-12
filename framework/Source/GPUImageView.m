@@ -119,7 +119,7 @@
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
-    if (object == self && [keyPath isEqualToString:@"frame"])
+    if (object == self && [keyPath isEqualToString:@"frame"] && (!CGSizeEqualToSize(self.bounds.size, CGSizeZero)))
     {
         [self destroyDisplayFramebuffer];
         [self createDisplayFramebuffer];
@@ -158,7 +158,7 @@
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, displayRenderbuffer);
 	
     GLuint framebufferCreationStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    NSAssert(framebufferCreationStatus == GL_FRAMEBUFFER_COMPLETE, @"Failure with display framebuffer generation");
+    NSAssert(framebufferCreationStatus == GL_FRAMEBUFFER_COMPLETE, @"Failure with display framebuffer generation for display of size: %f, %f", self.bounds.size.width, self.bounds.size.height);
 }
 
 - (void)destroyDisplayFramebuffer;
@@ -371,7 +371,7 @@
     {
         inputImageSize = rotatedSize;
         [self recalculateViewGeometry];
-    }    
+    }
 }
 
 - (CGSize)maximumOutputSize;

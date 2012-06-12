@@ -1,10 +1,11 @@
-#import "GPUImageRawData.h"
+#import "GPUImageRawDataOutput.h"
 
 #import "GPUImageOpenGLESContext.h"
 #import "GLProgram.h"
 #import "GPUImageFilter.h"
+#import "GPUImageMovieWriter.h"
 
-@interface GPUImageRawData ()
+@interface GPUImageRawDataOutput ()
 {
     
     BOOL hasReadFromTheCurrentFrame;
@@ -29,28 +30,36 @@
 
 @end
 
-@implementation GPUImageRawData
+@implementation GPUImageRawDataOutput
 
 @synthesize rawBytesForImage = _rawBytesForImage;
-@synthesize delegate = _delegate;
+@synthesize newFrameAvailableBlock = _newFrameAvailableBlock;
 
 #pragma mark -
 #pragma mark Initialization and teardown
 
-- (id)initWithImageSize:(CGSize)newImageSize;
+- (id)initWithImageSize:(CGSize)newImageSize resultsInBGRAFormat:(BOOL)resultsInBGRAFormat;
 {
     if (!(self = [super init]))
     {
 		return nil;
     }
 
+    outputBGRA = resultsInBGRAFormat;
     imageSize = newImageSize;
     hasReadFromTheCurrentFrame = NO;
     _rawBytesForImage = NULL;
     inputRotation = kGPUImageNoRotation;
 
     [GPUImageOpenGLESContext useImageProcessingContext];
-    dataProgram = [[GLProgram alloc] initWithVertexShaderString:kGPUImageVertexShaderString fragmentShaderString:kGPUImagePassthroughFragmentShaderString];
+    if ( (outputBGRA && ![GPUImageOpenGLESContext supportsFastTextureUpload]) || (!outputBGRA && [GPUImageOpenGLESContext supportsFastTextureUpload]) )
+    {
+        dataProgram = [[GLProgram alloc] initWithVertexShaderString:kGPUImageVertexShaderString fragmentShaderString:kGPUImageColorSwizzlingFragmentShaderString];
+    }
+    else
+    {
+        dataProgram = [[GLProgram alloc] initWithVertexShaderString:kGPUImageVertexShaderString fragmentShaderString:kGPUImagePassthroughFragmentShaderString];
+    }    
     
     [dataProgram addAttribute:@"position"];
 	[dataProgram addAttribute:@"inputTextureCoordinate"];
@@ -82,7 +91,7 @@
 {
     [self destroyDataFBO];
     
-    if (_rawBytesForImage != NULL)
+    if (_rawBytesForImage != NULL && (![GPUImageOpenGLESContext supportsFastTextureUpload])) 
     {
         free(_rawBytesForImage);
         _rawBytesForImage = NULL;
@@ -218,10 +227,10 @@
     };
     
     static const GLfloat textureCoordinates[] = {
-        0.0f, 1.0f,
-        1.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 0.0f,
+        0.0f, 1.0f,
+        1.0f, 1.0f,
     };
     
 	glActiveTexture(GL_TEXTURE4);
@@ -254,10 +263,8 @@
     locationToPickFrom.x = MIN(MAX(locationInImage.x, 0.0), (imageSize.width - 1.0));
     locationToPickFrom.y = MIN(MAX((imageSize.height - locationInImage.y), 0.0), (imageSize.height - 1.0));
     
-    if ([GPUImageOpenGLESContext supportsFastTextureUpload])    
+    if (outputBGRA)    
     {
-        // When reading directly from the texture using the fast texture cache, values are in BGRA, not RGBA
-        
         GPUByteColorVector flippedColor = imageColorBytes[(int)(round((locationToPickFrom.y * imageSize.width) + locationToPickFrom.x))];
         GLubyte temporaryRed = flippedColor.red;
         
@@ -278,7 +285,11 @@
 - (void)newFrameReadyAtTime:(CMTime)frameTime;
 {
     hasReadFromTheCurrentFrame = NO;
-    [self.delegate newImageFrameAvailableFromDataSource:self];
+    
+    if (_newFrameAvailableBlock != NULL)
+    {
+        _newFrameAvailableBlock();
+    }
 }
 
 - (NSInteger)nextAvailableTextureIndex;
@@ -344,17 +355,31 @@
         
         if ([GPUImageOpenGLESContext supportsFastTextureUpload]) 
         {
+            glFinish();
             CVPixelBufferLockBaseAddress(renderTarget, 0);
             _rawBytesForImage = (GLubyte *)CVPixelBufferGetBaseAddress(renderTarget);
         } 
         else 
         {
             glReadPixels(0, 0, imageSize.width, imageSize.height, GL_RGBA, GL_UNSIGNED_BYTE, _rawBytesForImage);
+            // GL_EXT_read_format_bgra
+//            glReadPixels(0, 0, imageSize.width, imageSize.height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, _rawBytesForImage);
         }
         
         return _rawBytesForImage;
     }
-    
+}
+
+- (NSUInteger)bytesPerRowInOutput;
+{
+    if ([GPUImageOpenGLESContext supportsFastTextureUpload]) 
+    {
+        return CVPixelBufferGetBytesPerRow(renderTarget);
+    }
+    else
+    {
+        return imageSize.width * 4;
+    }
 }
 
 @end
