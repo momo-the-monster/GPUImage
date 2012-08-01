@@ -16,6 +16,7 @@
 #import "GPUImageFilterGroup.h"
 #import "GPUImageTextureInput.h"
 #import "GPUImageUIElement.h"
+#import "GPUImageBuffer.h"
 
 // Filters
 #import "GPUImageFilter.h"
@@ -44,6 +45,7 @@
 #import "GPUImageLightenBlendFilter.h"
 #import "GPUImageSwirlFilter.h"
 #import "GPUImageFastBlurFilter.h"
+#import "GPUImageSourceOverBlendFilter.h"
 #import "GPUImageColorBurnBlendFilter.h"
 #import "GPUImageColorDodgeBlendFilter.h"
 #import "GPUImageScreenBlendFilter.h"
@@ -101,3 +103,10 @@
 #import "GPUImageClosingFilter.h"
 #import "GPUImageRGBClosingFilter.h"
 #import "GPUImageColorPackingFilter.h"
+#import "GPUImageSphereRefractionFilter.h"
+#import "GPUImageMonochromeFilter.h"
+#import "GPUImageOpacityFilter.h"
+#import "GPUImageHighlightShadowFilter.h"
+#import "GPUImageFalseColorFilter.h"
+#import "GPUImageHueFilter.h"
+#import "GPUImageGlassSphereFilter.h"

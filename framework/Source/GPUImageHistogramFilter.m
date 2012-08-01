@@ -188,7 +188,6 @@ NSString *const kGPUImageHistogramAccumulationFragmentShaderString = SHADER_STRI
     if (vertexSamplingCoordinates != NULL)
     {
         free(vertexSamplingCoordinates);
-        free(textureSamplingCoordinates);
     }
 }
 
@@ -205,14 +204,14 @@ NSString *const kGPUImageHistogramAccumulationFragmentShaderString = SHADER_STRI
     return CGSizeMake(256.0, 3.0);
 }
 
-- (void)newFrameReadyAtTime:(CMTime)frameTime;
+- (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex;
 {
     if (vertexSamplingCoordinates == NULL)
     {
         [self generatePointCoordinates];
     }
     
-    [self renderToTextureWithVertices:vertexSamplingCoordinates textureCoordinates:textureSamplingCoordinates sourceTexture:filterSourceTexture];
+    [self renderToTextureWithVertices:NULL textureCoordinates:NULL sourceTexture:filterSourceTexture];
     
     [self informTargetsAboutNewFrameAtTime:frameTime];
 }

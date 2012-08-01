@@ -137,7 +137,9 @@
 #pragma mark Managing the display FBOs
 
 - (void)createDisplayFramebuffer;
-{
+{    
+    [GPUImageOpenGLESContext useImageProcessingContext];
+    
 	glGenFramebuffers(1, &displayFramebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, displayFramebuffer);
 	
@@ -150,9 +152,16 @@
 
 	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &backingWidth);
 	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &backingHeight);
+    
+    if ( (backingWidth == 0) || (backingHeight == 0) )
+    {
+        [self destroyDisplayFramebuffer];
+        return;
+    }
+    
     _sizeInPixels.width = (CGFloat)backingWidth;
     _sizeInPixels.height = (CGFloat)backingHeight;
-    
+
 //	NSLog(@"Backing width: %d, height: %d", backingWidth, backingHeight);
 
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, displayRenderbuffer);
@@ -306,6 +315,13 @@
         0.0f, 1.0f,
     };
     
+    static const GLfloat rotate180TextureCoordinates[] = {
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f,
+    };
+    
     switch(rotationMode)
     {
         case kGPUImageNoRotation: return noRotationTextureCoordinates;
@@ -314,13 +330,14 @@
         case kGPUImageFlipVertical: return verticalFlipTextureCoordinates;
         case kGPUImageFlipHorizonal: return horizontalFlipTextureCoordinates;
         case kGPUImageRotateRightFlipVertical: return rotateRightVerticalFlipTextureCoordinates;
+        case kGPUImageRotate180: return rotate180TextureCoordinates;
     }
 }
 
 #pragma mark -
 #pragma mark GPUInput protocol
 
-- (void)newFrameReadyAtTime:(CMTime)frameTime;
+- (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex;
 {
     [GPUImageOpenGLESContext useImageProcessingContext];
     [self setDisplayFramebuffer];

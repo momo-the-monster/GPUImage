@@ -60,9 +60,9 @@
 #pragma mark -
 #pragma mark Managing targets
 
-- (void)setInputTextureForTarget:(id<GPUImageInput>)target atIndex:(NSInteger)inputTextureIndex;
+- (GLuint)textureForOutput;
 {
-    [target setInputTexture:secondFilterOutputTexture atIndex:inputTextureIndex];
+    return secondFilterOutputTexture;
 }
 
 #pragma mark -
@@ -113,7 +113,12 @@
 
     if ([GPUImageOpenGLESContext supportsFastTextureUpload] && preparedToCaptureImage)
     {
+#if defined(__IPHONE_6_0)
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, [[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &filterTextureCache);
+#else
         CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)[[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &filterTextureCache);
+#endif
+
         if (err) 
         {
             NSAssert(NO, @"Error at CVOpenGLESTextureCacheCreate %d", err);
@@ -158,12 +163,16 @@
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, CVOpenGLESTextureGetName(renderTexture), 0);
+        
+        [self notifyTargetsAboutNewOutputTexture];
     }
     else
     {
         glBindTexture(GL_TEXTURE_2D, secondFilterOutputTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)currentFBOSize.width, (int)currentFBOSize.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, secondFilterOutputTexture, 0);
+        
+        [self notifyTargetsAboutNewOutputTexture];
     }
 	
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);

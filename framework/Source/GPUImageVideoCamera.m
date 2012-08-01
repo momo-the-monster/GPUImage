@@ -53,7 +53,11 @@
     if ([GPUImageOpenGLESContext supportsFastTextureUpload])
     {
         [GPUImageOpenGLESContext useImageProcessingContext];
+#if defined(__IPHONE_6_0)
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, [[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &coreVideoTextureCache);
+#else
         CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)[[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &coreVideoTextureCache);
+#endif
         if (err) 
         {
             NSAssert(NO, @"Error at CVOpenGLESTextureCacheCreate %d", err);
@@ -284,22 +288,24 @@
 
         for (id<GPUImageInput> currentTarget in targets)
         {
-            NSInteger indexOfObject = [targets indexOfObject:currentTarget];
-            NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
-
-            if (currentTarget != self.targetToIgnoreForUpdates)
-            {
-                [currentTarget setInputSize:CGSizeMake(bufferWidth, bufferHeight) atIndex:textureIndexOfTarget];
+            if ([(GPUImageOutput *)currentTarget respondsToSelector:@selector(enabled)] && [(GPUImageOutput *)currentTarget isEnabled]) {
+                NSInteger indexOfObject = [targets indexOfObject:currentTarget];
+                NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
                 
-                [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
-                [currentTarget setInputRotation:outputRotation atIndex:textureIndexOfTarget];
-                
-                [currentTarget newFrameReadyAtTime:currentTime];
-            }
-            else
-            {
-                [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
-                [currentTarget setInputRotation:outputRotation atIndex:textureIndexOfTarget];
+                if (currentTarget != self.targetToIgnoreForUpdates)
+                {
+                    [currentTarget setInputSize:CGSizeMake(bufferWidth, bufferHeight) atIndex:textureIndexOfTarget];
+                    
+                    [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
+                    [currentTarget setInputRotation:outputRotation atIndex:textureIndexOfTarget];
+                    
+                    [currentTarget newFrameReadyAtTime:currentTime atIndex:textureIndexOfTarget];
+                }
+                else
+                {
+                    [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
+                    [currentTarget setInputRotation:outputRotation atIndex:textureIndexOfTarget];
+                }
             }
         }
         
@@ -338,13 +344,15 @@
         
         for (id<GPUImageInput> currentTarget in targets)
         {
-            if (currentTarget != self.targetToIgnoreForUpdates)
-            {
-                NSInteger indexOfObject = [targets indexOfObject:currentTarget];
-                NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
-
-                [currentTarget setInputSize:CGSizeMake(bufferWidth, bufferHeight) atIndex:textureIndexOfTarget];
-                [currentTarget newFrameReadyAtTime:currentTime];
+            if ([(GPUImageOutput *)currentTarget respondsToSelector:@selector(enabled)] && [(GPUImageOutput *)currentTarget isEnabled]) {
+                if (currentTarget != self.targetToIgnoreForUpdates)
+                {
+                    NSInteger indexOfObject = [targets indexOfObject:currentTarget];
+                    NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
+                    
+                    [currentTarget setInputSize:CGSizeMake(bufferWidth, bufferHeight) atIndex:textureIndexOfTarget];
+                    [currentTarget newFrameReadyAtTime:currentTime atIndex:textureIndexOfTarget];
+                }
             }
         }
         
@@ -384,16 +392,17 @@
 	@autoreleasepool 
 	{
 		//these need to be on the main thread for proper timing
+        __unsafe_unretained id weakSelf = self;
 		if (captureOutput == audioOutput)
 		{
 			runOnMainQueueWithoutDeadlocking(^{ 
-                [self processAudioSampleBuffer:sampleBuffer]; 
+                [weakSelf processAudioSampleBuffer:sampleBuffer];
             });
 		}
 		else
 		{
 			runOnMainQueueWithoutDeadlocking(^{ 
-                [self processVideoSampleBuffer:sampleBuffer]; 
+                [weakSelf processVideoSampleBuffer:sampleBuffer];
             });
 		}
 	}
@@ -460,18 +469,18 @@
         switch(_outputImageOrientation)
         {
             case UIInterfaceOrientationPortrait:outputRotation = kGPUImageRotateRight; break;
-            case UIInterfaceOrientationPortraitUpsideDown:outputRotation = kGPUImageRotateRightFlipVertical; break;
+            case UIInterfaceOrientationPortraitUpsideDown:outputRotation = kGPUImageRotateLeft; break;
             case UIInterfaceOrientationLandscapeLeft:outputRotation = kGPUImageNoRotation; break;
-            case UIInterfaceOrientationLandscapeRight:outputRotation = kGPUImageFlipVertical; break;
+            case UIInterfaceOrientationLandscapeRight:outputRotation = kGPUImageRotate180; break;
         }
     }
     else
     {
         switch(_outputImageOrientation)
         {
-            case UIInterfaceOrientationPortrait:outputRotation = kGPUImageRotateRightFlipVertical; break;
-            case UIInterfaceOrientationPortraitUpsideDown:outputRotation = kGPUImageRotateRight; break;
-            case UIInterfaceOrientationLandscapeLeft:outputRotation = kGPUImageFlipVertical; break;
+            case UIInterfaceOrientationPortrait:outputRotation = kGPUImageRotateRight; break;
+            case UIInterfaceOrientationPortraitUpsideDown:outputRotation = kGPUImageRotateLeft; break;
+            case UIInterfaceOrientationLandscapeLeft:outputRotation = kGPUImageRotate180; break;
             case UIInterfaceOrientationLandscapeRight:outputRotation = kGPUImageNoRotation; break;
         }
     }

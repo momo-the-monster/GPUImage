@@ -206,7 +206,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     [stillImageSource addTarget:self];
     [stillImageSource processImage];
     
-    UIImage *processedImage = [self imageFromCurrentlyProcessedOutput];
+    UIImage *processedImage = [self imageFromCurrentlyProcessedOutputWithOrientation:[imageToFilter imageOrientation]];
     
     [stillImageSource removeTarget:self];
     return processedImage;
@@ -233,11 +233,17 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     glActiveTexture(GL_TEXTURE1);
     glGenFramebuffers(1, &filterFramebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, filterFramebuffer);
-
+    
     if ([GPUImageOpenGLESContext supportsFastTextureUpload] && preparedToCaptureImage)
     {
+        
+#if defined(__IPHONE_6_0)
+        CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, [[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &filterTextureCache);
+#else
         CVReturn err = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, NULL, (__bridge void *)[[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context], NULL, &filterTextureCache);
-        if (err) 
+#endif
+
+        if (err)
         {
             NSAssert(NO, @"Error at CVOpenGLESTextureCacheCreate %d", err);
         }
@@ -281,12 +287,16 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, CVOpenGLESTextureGetName(renderTexture), 0);
+        
+        [self notifyTargetsAboutNewOutputTexture];
     }
     else
     {                
         glBindTexture(GL_TEXTURE_2D, outputTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (int)currentFBOSize.width, (int)currentFBOSize.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
+        
+        [self notifyTargetsAboutNewOutputTexture];
     }
     
 //    NSLog(@"Filter size: %f, %f for filter: %@", currentFBOSize.width, currentFBOSize.height, self);
@@ -391,6 +401,13 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         1.0f, 0.0f,
         1.0f, 1.0f,
     };
+    
+    static const GLfloat rotate180TextureCoordinates[] = {
+        1.0f, 1.0f,
+        0.0f, 1.0f,
+        1.0f, 0.0f,
+        0.0f, 0.0f,
+    };
 
     switch(rotationMode)
     {
@@ -400,6 +417,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         case kGPUImageFlipVertical: return verticalFlipTextureCoordinates;
         case kGPUImageFlipHorizonal: return horizontalFlipTextureCoordinates;
         case kGPUImageRotateRightFlipVertical: return rotateRightVerticalFlipTextureCoordinates;
+        case kGPUImageRotate180: return rotate180TextureCoordinates;
     }
 }
 
@@ -449,7 +467,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
             }
             
             [currentTarget setInputSize:[self outputFrameSize] atIndex:textureIndex];
-            [currentTarget newFrameReadyAtTime:frameTime];
+            [currentTarget newFrameReadyAtTime:frameTime atIndex:textureIndex];
         }
     }
 }
@@ -555,7 +573,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
 #pragma mark -
 #pragma mark GPUImageInput
 
-- (void)newFrameReadyAtTime:(CMTime)frameTime;
+- (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex;
 {
     static const GLfloat imageVertices[] = {
         -1.0f, -1.0f,
@@ -637,6 +655,11 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
             rotatedPoint.x = pointToRotate.y;
             rotatedPoint.y = pointToRotate.x;
         }; break;
+        case kGPUImageRotate180:
+        {
+            rotatedPoint.x = 1.0 - pointToRotate.x;
+            rotatedPoint.y = 1.0 - pointToRotate.y;
+        }; break;
     }
     
     return rotatedPoint;
@@ -700,6 +723,8 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     if (CGSizeEqualToSize(frameSize, CGSizeZero))
     {
         overrideInputSize = NO;
+        inputTextureSize = CGSizeZero;
+        forcedMaximumSize = CGSizeZero;
     }
     else
     {

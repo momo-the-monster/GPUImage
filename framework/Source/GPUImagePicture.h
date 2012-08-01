@@ -4,7 +4,8 @@
 
 @interface GPUImagePicture : GPUImageOutput
 {
-    UIImage *imageSource;    
+    CGSize pixelSizeOfImage;
+    BOOL hasProcessedImage;
 }
 
 // Initialization and teardown
