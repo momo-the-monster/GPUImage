@@ -10,6 +10,9 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
  void main()
 {
 		if(mode == 0) {
+			// Bypass
+				gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
+		} else if(mode == 1) {
 			// Horizontal Mirror, Favor Left
 			if(textureCoordinate.x > division) {
 				highp vec2 samplePos = vec2((division * 2.0) - textureCoordinate.x, textureCoordinate.y);
@@ -17,7 +20,7 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
 			} else {
 				gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
 			}
-		} else if(mode == 1) {
+		} else if(mode == 2) {
 			// Horizontal Mirror, Favor Right
 			if(textureCoordinate.x < division) {
 				highp vec2 samplePos = vec2((division * 2.0) - textureCoordinate.x, textureCoordinate.y);
@@ -25,7 +28,7 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
 			} else {
 				gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
 			}
-		} else if(mode == 2) {
+		} else if(mode == 3) {
 			// Vertical Mirror, Favor Top
 			if(textureCoordinate.y > division) {
 				highp vec2 samplePos = vec2(textureCoordinate.x, (division * 2.0) - textureCoordinate.y);
@@ -33,7 +36,7 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
 			} else {
 				gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
 			}
-		} else if(mode ==3) {
+		} else if(mode ==4) {
 			// Vertical Mirror, Favor Bottom
 			if(textureCoordinate.y < division) {
 				highp vec2 samplePos = vec2(textureCoordinate.x, (division * 2.0) - textureCoordinate.y);
