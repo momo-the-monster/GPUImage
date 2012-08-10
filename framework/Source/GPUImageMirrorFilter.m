@@ -60,7 +60,7 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
     
     modeUniform = [filterProgram uniformIndex:@"mode"];
 	divisionUniform = [filterProgram uniformIndex:@"division"];
-    self.mode = MIRROR_MODE_HORIZ_RIGHT;
+    self.mode = MIRROR_MODE_NONE;
     self.division = 0.5;
     return self;
 }
