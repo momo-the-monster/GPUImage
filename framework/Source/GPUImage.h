@@ -99,6 +99,7 @@
 #import "GPUImageDilationFilter.h"
 #import "GPUImageRGBDilationFilter.h"
 #import "GPUImageOpeningFilter.h"
+#import "GPUImageMirrorFilter.h"
 #import "GPUImageRGBOpeningFilter.h"
 #import "GPUImageClosingFilter.h"
 #import "GPUImageRGBClosingFilter.h"
