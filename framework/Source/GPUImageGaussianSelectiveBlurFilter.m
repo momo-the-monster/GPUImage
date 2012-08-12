@@ -123,7 +123,7 @@ NSString *const kGPUImageGaussianSelectiveBlurFragmentShaderString = SHADER_STRI
 - (void)setBlurOpacity:(CGFloat)newValue;
 {
     _blurOpacity = newValue;
-    [selectiveFocusFilter setFloat:newValue forUniform:@"blurOpacity"];
+    [selectiveFocusFilter setFloat:_blurOpacity forUniformName:@"blurOpacity"];
 }
 
 @end
