@@ -7,4 +7,6 @@
 
 @property(readwrite, nonatomic) NSUInteger bufferSize;
 
+- (void)removeTexture:(GLuint)textureToRemove;
+
 @end

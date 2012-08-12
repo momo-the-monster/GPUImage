@@ -23,3 +23,5 @@ xcuserdata
 # Documentation
 documentation/*
 
+
+framework/GPUImage.xcodeproj/project.pbxproj
