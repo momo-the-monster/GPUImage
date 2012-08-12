@@ -55,6 +55,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size);
     backgroundColorBlue = 0.0;
     backgroundColorAlpha = 0.0;
 
+    // REFACTOR: Wrap this in block to perform on image processing queue?
     [GPUImageOpenGLESContext useImageProcessingContext];
     filterProgram = [[GLProgram alloc] initWithVertexShaderString:vertexShaderString fragmentShaderString:fragmentShaderString];
     
@@ -76,7 +77,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size);
     filterTextureCoordinateAttribute = [filterProgram attributeIndex:@"inputTextureCoordinate"];
     filterInputTextureUniform = [filterProgram uniformIndex:@"inputImageTexture"]; // This does assume a name of "inputImageTexture" for the fragment shader
 
-    [filterProgram use];    
+    [GPUImageOpenGLESContext setActiveShaderProgram:filterProgram];
     
 	glEnableVertexAttribArray(filterPositionAttribute);
 	glEnableVertexAttribArray(filterTextureCoordinateAttribute);    
@@ -143,11 +144,10 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     filter.preventRendering = NO;
 }
 
-- (UIImage *)imageFromCurrentlyProcessedOutputWithOrientation:(UIImageOrientation)imageOrientation;
-{
+- (CGImageRef)newCGImageFromCurrentlyProcessedOutputWithOrientation:(UIImageOrientation)imageOrientation {
     [GPUImageOpenGLESContext useImageProcessingContext];
     [self setOutputFBO];
-
+    
     CGSize currentFBOSize = [self sizeOfFBO];
     NSUInteger totalBytesForImage = (int)currentFBOSize.width * (int)currentFBOSize.height * 4;
     // It appears that the width of a texture must be padded out to be a multiple of 8 (32 bytes) if reading from it using a texture cache
@@ -159,7 +159,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     CGDataProviderRef dataProvider;
     if ([GPUImageOpenGLESContext supportsFastTextureUpload] && preparedToCaptureImage) 
     {
-//        glFlush();
+        //        glFlush();
         glFinish();
         CFRetain(renderTarget); // I need to retain the pixel buffer here and release in the data source callback to prevent its bytes from being prematurely deallocated during a photo write operation
         CVPixelBufferLockBaseAddress(renderTarget, 0);
@@ -176,7 +176,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
 	
     
     CGColorSpaceRef defaultRGBColorSpace = CGColorSpaceCreateDeviceRGB();
-
+    
     CGImageRef cgImageFromBytes;
     if ([GPUImageOpenGLESContext supportsFastTextureUpload] && preparedToCaptureImage) 
     {
@@ -188,27 +188,49 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     }
     
     // Capture image with current device orientation
-    UIImage *finalImage = [UIImage imageWithCGImage:cgImageFromBytes scale:1.0 orientation:imageOrientation];
-
-    CGImageRelease(cgImageFromBytes);
     CGDataProviderRelease(dataProvider);
     CGColorSpaceRelease(defaultRGBColorSpace);
-    
+
+    return cgImageFromBytes;
+}
+
+- (UIImage *)imageFromCurrentlyProcessedOutputWithOrientation:(UIImageOrientation)imageOrientation;
+{
+    CGImageRef cgImageFromBytes = [self newCGImageFromCurrentlyProcessedOutputWithOrientation:imageOrientation];
+    UIImage *finalImage = [UIImage imageWithCGImage:cgImageFromBytes scale:1.0 orientation:imageOrientation];
+    CGImageRelease(cgImageFromBytes);
+
     return finalImage;
 }
 
-- (UIImage *)imageByFilteringImage:(UIImage *)imageToFilter;
+- (CGImageRef)newCGImageByFilteringCGImage:(CGImageRef)imageToFilter {
+    return [self newCGImageByFilteringCGImage:imageToFilter orientation:UIImageOrientationUp];
+}
+
+- (CGImageRef)newCGImageByFilteringCGImage:(CGImageRef)imageToFilter orientation:(UIImageOrientation)orientation;
 {
-    GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithImage:imageToFilter];
+    GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithCGImage:imageToFilter];
     
     [self prepareForImageCapture];
     
     [stillImageSource addTarget:self];
     [stillImageSource processImage];
     
-    UIImage *processedImage = [self imageFromCurrentlyProcessedOutputWithOrientation:[imageToFilter imageOrientation]];
+    CGImageRef processedImage = [self newCGImageFromCurrentlyProcessedOutputWithOrientation:orientation];
     
     [stillImageSource removeTarget:self];
+    return processedImage;
+}
+
+- (CGImageRef)newCGImageByFilteringImage:(UIImage *)imageToFilter {
+    return [self newCGImageByFilteringCGImage:[imageToFilter CGImage] orientation:[imageToFilter imageOrientation]];
+}
+
+- (UIImage *)imageByFilteringImage:(UIImage *)imageToFilter;
+{
+    CGImageRef image = [self newCGImageByFilteringCGImage:[imageToFilter CGImage] orientation:[imageToFilter imageOrientation]];
+    UIImage *processedImage = [UIImage imageWithCGImage:image scale:[imageToFilter scale] orientation:[imageToFilter imageOrientation]];
+    CGImageRelease(image);
     return processedImage;
 }
 
@@ -428,10 +450,8 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         return;
     }
     
-    [GPUImageOpenGLESContext useImageProcessingContext];
+    [GPUImageOpenGLESContext setActiveShaderProgram:filterProgram];
     [self setFilterFBO];
-    
-    [filterProgram use];
     
     glClearColor(backgroundColorRed, backgroundColorGreen, backgroundColorBlue, backgroundColorAlpha);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -504,70 +524,123 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
     backgroundColorAlpha = alphaComponent;
 }
 
-- (void)setInteger:(GLint)newInteger forUniform:(NSString *)uniformName;
+- (void)setInteger:(GLint)newInteger forUniformName:(NSString *)uniformName;
 {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    
-    glUniform1i(uniformIndex, newInteger);
+    [self setInteger:newInteger forUniform:uniformIndex program:filterProgram];
 }
 
-- (void)setFloat:(GLfloat)newFloat forUniform:(NSString *)uniformName;
+- (void)setFloat:(GLfloat)newFloat forUniformName:(NSString *)uniformName;
 {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    
-    glUniform1f(uniformIndex, newFloat);
+    [self setFloat:newFloat forUniform:uniformIndex program:filterProgram];
 }
 
-- (void)setSize:(CGSize)newSize forUniform:(NSString *)uniformName;
+- (void)setSize:(CGSize)newSize forUniformName:(NSString *)uniformName;
 {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    GLfloat sizeUniform[2];
-    sizeUniform[0] = newSize.width;
-    sizeUniform[1] = newSize.height;
-    
-    glUniform2fv(uniformIndex, 1, sizeUniform);
+    [self setSize:newSize forUniform:uniformIndex program:filterProgram];
 }
 
-- (void)setPoint:(CGPoint)newPoint forUniform:(NSString *)uniformName;
+- (void)setPoint:(CGPoint)newPoint forUniformName:(NSString *)uniformName;
 {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    GLfloat sizeUniform[2];
-    sizeUniform[0] = newPoint.x;
-    sizeUniform[1] = newPoint.y;
-    
-    glUniform2fv(uniformIndex, 1, sizeUniform);
+    [self setPoint:newPoint forUniform:uniformIndex program:filterProgram];
 }
 
-- (void)setFloatVec3:(GLfloat *)newVec3 forUniform:(NSString *)uniformName;
+- (void)setFloatVec3:(GLfloat *)newVec3 forUniformName:(NSString *)uniformName;
 {
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    [filterProgram use];
-    
-    glUniform3fv(uniformIndex, 1, newVec3);    
+    [self setVec3:newVec3 forUniform:uniformIndex program:filterProgram];
 }
 
 - (void)setFloatVec4:(GLfloat *)newVec4 forUniform:(NSString *)uniformName;
 {
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
-    [filterProgram use];
-    
-    glUniform4fv(uniformIndex, 1, newVec4);    
+    [self setVec4:newVec4 forUniform:uniformIndex program:filterProgram];
 }
 
-- (void)setFloatArray:(GLfloat *)array length:(GLsizei)count forUniform:(NSString*)uniformName {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
+- (void)setFloatArray:(GLfloat *)array length:(GLsizei)count forUniform:(NSString*)uniformName
+{
     GLint uniformIndex = [filterProgram uniformIndex:uniformName];
     
-    glUniform1fv(uniformIndex, count, array);
+    [self setFloatArray:array length:count forUniform:uniformIndex program:filterProgram];
+}
+
+- (void)setMatrix3f:(GLfloat *)matrix forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    glUniformMatrix3fv(uniform, 1, GL_FALSE, matrix);
+}
+
+- (void)setMatrix4f:(GLfloat *)matrix forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    glUniformMatrix4fv(uniform, 1, GL_FALSE, matrix);
+}
+
+- (void)setFloat:(GLfloat)floatValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    glUniform1f(uniform, floatValue);
+}
+
+- (void)setPoint:(CGPoint)pointValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+
+    GLfloat positionArray[2];
+    positionArray[0] = pointValue.x;
+    positionArray[1] = pointValue.y;
+    
+    glUniform2fv(uniform, 1, positionArray);
+}
+
+- (void)setSize:(CGSize)sizeValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    
+    GLfloat sizeArray[2];
+    sizeArray[0] = sizeValue.width;
+    sizeArray[1] = sizeValue.height;
+    
+    glUniform2fv(uniform, 1, sizeArray);
+}
+
+- (void)setVec3:(GLfloat *)vectorValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+
+    glUniform3fv(uniform, 1, vectorValue);
+}
+
+- (void)setVec4:(GLfloat *)vectorValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    
+    glUniform4fv(uniform, 1, vectorValue);
+}
+
+- (void)setFloatArray:(GLfloat *)arrayValue length:(GLsizei)arrayLength forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    
+    glUniform1fv(uniform, arrayLength, arrayValue);
+}
+
+- (void)setInteger:(GLint)intValue forUniform:(GLint)uniform program:(GLProgram *)shaderProgram;
+{
+    // REFACTOR: Wrap this in a block on the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:shaderProgram];
+    glUniform1i(uniform, intValue);
 }
 
 #pragma mark -
