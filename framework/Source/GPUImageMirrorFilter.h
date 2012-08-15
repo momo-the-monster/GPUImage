@@ -18,7 +18,7 @@ typedef enum mirrorModes {
 	GLfloat divisionUniform;
     
 }
-@property (nonatomic, readwrite) int mode;
+@property (nonatomic, readwrite) GLuint mode;
 @property (nonatomic, readwrite) float division;
 
 @end

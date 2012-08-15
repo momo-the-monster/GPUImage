@@ -3,7 +3,9 @@
 NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
 (
  varying highp vec2 textureCoordinate;
+ 
  uniform sampler2D inputImageTexture;
+ 
  uniform highp float division;
  uniform int mode;
  
@@ -63,7 +65,11 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
 
 
 @implementation GPUImageMirrorFilter
-@synthesize mode, division;
+@synthesize mode = _mode;
+@synthesize division = _division;
+
+#pragma mark -
+#pragma mark Initialization and teardown
 
 -(id) init {
     if(! (self = [super initWithFragmentShaderFromString:kGPUImageMirrorFragmentShaderString]) ){
@@ -72,24 +78,24 @@ NSString *const kGPUImageMirrorFragmentShaderString = SHADER_STRING
     
     modeUniform = [filterProgram uniformIndex:@"mode"];
 	divisionUniform = [filterProgram uniformIndex:@"division"];
-    self.mode = MIRROR_MODE_NONE;
-    self.division = 0.5;
+
+	[self setMode:MIRROR_MODE_NONE];
+	[self setDivision:0.5];
+	
     return self;
 }
 
--(void) setDivision:(float) newDivision {
-	division = newDivision;
-	[GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
-    glUniform1f(divisionUniform, division);
+#pragma mark -
+#pragma mark Accessors
+
+-(void) setDivision:(float)division {
+	_division = division;
+	[self setFloat:_division forUniform:divisionUniform program:filterProgram];
 }
 
--(void) setMode:(int)newMode {
-    mode  = newMode;
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [filterProgram use];
-    glUniform1i(modeUniform, mode);
+-(void) setMode:(GLuint)mode {
+    _mode  = mode;
+	[self setInteger:_mode forUniform:modeUniform program:filterProgram];
 }
-
 
 @end
