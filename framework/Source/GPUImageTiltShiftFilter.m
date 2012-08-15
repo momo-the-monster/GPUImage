@@ -86,7 +86,7 @@ NSString *const kGPUImageTiltShiftFragmentShaderString = SHADER_STRING
 - (void)setBlurOpacity:(CGFloat)newValue;
 {
     _blurOpacity = newValue;
-    [tiltShiftFilter setFloat:newValue forUniform:@"blurOpacity"];
+    [tiltShiftFilter setFloat:newValue forUniformName:@"blurOpacity"];
 }
 
 - (void)setTopFocusLevel:(CGFloat)newValue;
