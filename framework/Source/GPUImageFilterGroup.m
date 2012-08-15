@@ -47,17 +47,39 @@
     return [self.terminalFilter imageFromCurrentlyProcessedOutputWithOrientation:imageOrientation];
 }
 
+- (CGImageRef)newCGImageFromCurrentlyProcessedOutputWithOrientation:(UIImageOrientation)imageOrientation;
+{
+    return [self.terminalFilter newCGImageFromCurrentlyProcessedOutputWithOrientation:imageOrientation];
+}
+
 - (UIImage *)imageByFilteringImage:(UIImage *)imageToFilter;
 {
-    GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithImage:imageToFilter];
-    
-    [stillImageSource addTarget:self];
-    [stillImageSource processImage];
-    
-    UIImage *processedImage = [self.terminalFilter imageFromCurrentlyProcessedOutput];
-    
-    [stillImageSource removeTarget:self];
-    return processedImage;
+    return [self.terminalFilter imageByFilteringImage:imageToFilter];
+//    CGImageRef image = [self newCGImageByFilteringCGImage:[imageToFilter CGImage]];
+//    UIImage *processedImage = [UIImage imageWithCGImage:image];
+//    CGImageRelease(image);
+//    return processedImage;
+}
+
+- (CGImageRef)newCGImageByFilteringImage:(UIImage *)imageToFilter;
+{
+    return [self.terminalFilter newCGImageByFilteringImage:imageToFilter];
+//    
+//    return [self newCGImageByFilteringCGImage:[imageToFilter CGImage]];
+}
+
+- (CGImageRef)newCGImageByFilteringCGImage:(CGImageRef)imageToFilter;
+{
+    return [self.terminalFilter newCGImageByFilteringCGImage:imageToFilter];
+//    GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithCGImage:imageToFilter];
+//    
+//    [stillImageSource addTarget:self];
+//    [stillImageSource processImage];
+//    
+//    CGImageRef processedImage = [self.terminalFilter newCGImageFromCurrentlyProcessedOutput];
+//    
+//    [stillImageSource removeTarget:self];
+//    return processedImage;
 }
 
 - (void)prepareForImageCapture;

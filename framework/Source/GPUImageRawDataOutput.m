@@ -34,6 +34,7 @@
 
 @synthesize rawBytesForImage = _rawBytesForImage;
 @synthesize newFrameAvailableBlock = _newFrameAvailableBlock;
+@synthesize enabled;
 
 #pragma mark -
 #pragma mark Initialization and teardown
@@ -45,6 +46,7 @@
 		return nil;
     }
 
+    self.enabled = YES;
     outputBGRA = resultsInBGRAFormat;
     imageSize = newImageSize;
     hasReadFromTheCurrentFrame = NO;
@@ -80,7 +82,9 @@
     dataTextureCoordinateAttribute = [dataProgram attributeIndex:@"inputTextureCoordinate"];
     dataInputTextureUniform = [dataProgram uniformIndex:@"inputImageTexture"];
     
-    [dataProgram use];    
+    // REFACTOR: Wrap this in a block for the image processing queue
+    [GPUImageOpenGLESContext setActiveShaderProgram:dataProgram];
+
 	glEnableVertexAttribArray(dataPositionAttribute);
 	glEnableVertexAttribArray(dataTextureCoordinateAttribute);
 
@@ -215,10 +219,8 @@
 
 - (void)renderAtInternalSize;
 {
-    [GPUImageOpenGLESContext useImageProcessingContext];
-    [self setFilterFBO];
-    
-    [dataProgram use];
+    [GPUImageOpenGLESContext setActiveShaderProgram:dataProgram];
+    [self setFilterFBO];    
     
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -339,36 +341,38 @@
         _rawBytesForImage = (GLubyte *) calloc(imageSize.width * imageSize.height * 4, sizeof(GLubyte));
         hasReadFromTheCurrentFrame = NO;
     }
- 
+        
     if (hasReadFromTheCurrentFrame)
     {
         return _rawBytesForImage;
     }
     else
     {
-        // Note: the fast texture caches speed up 640x480 frame reads from 9.6 ms to 3.1 ms on iPhone 4S
-        
-        [GPUImageOpenGLESContext useImageProcessingContext];
-        if ([GPUImageOpenGLESContext supportsFastTextureUpload]) 
-        {
-            CVPixelBufferUnlockBaseAddress(renderTarget, 0);
-//            CVOpenGLESTextureCacheFlush(rawDataTextureCache, 0);
-        }
-        
-        [self renderAtInternalSize];
-        
-        if ([GPUImageOpenGLESContext supportsFastTextureUpload]) 
-        {
-            glFinish();
-            CVPixelBufferLockBaseAddress(renderTarget, 0);
-            _rawBytesForImage = (GLubyte *)CVPixelBufferGetBaseAddress(renderTarget);
-        } 
-        else 
-        {
-            glReadPixels(0, 0, imageSize.width, imageSize.height, GL_RGBA, GL_UNSIGNED_BYTE, _rawBytesForImage);
-            // GL_EXT_read_format_bgra
-//            glReadPixels(0, 0, imageSize.width, imageSize.height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, _rawBytesForImage);
-        }
+        runSynchronouslyOnVideoProcessingQueue(^{
+            // Note: the fast texture caches speed up 640x480 frame reads from 9.6 ms to 3.1 ms on iPhone 4S
+            
+            [GPUImageOpenGLESContext useImageProcessingContext];
+            if ([GPUImageOpenGLESContext supportsFastTextureUpload])
+            {
+                CVPixelBufferUnlockBaseAddress(renderTarget, 0);
+                //            CVOpenGLESTextureCacheFlush(rawDataTextureCache, 0);
+            }
+            
+            [self renderAtInternalSize];
+            
+            if ([GPUImageOpenGLESContext supportsFastTextureUpload])
+            {
+                glFinish();
+                CVPixelBufferLockBaseAddress(renderTarget, 0);
+                _rawBytesForImage = (GLubyte *)CVPixelBufferGetBaseAddress(renderTarget);
+            }
+            else
+            {
+                glReadPixels(0, 0, imageSize.width, imageSize.height, GL_RGBA, GL_UNSIGNED_BYTE, _rawBytesForImage);
+                // GL_EXT_read_format_bgra
+                //            glReadPixels(0, 0, imageSize.width, imageSize.height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, _rawBytesForImage);
+            }
+        });
         
         return _rawBytesForImage;
     }

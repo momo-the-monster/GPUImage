@@ -5,6 +5,20 @@
 @implementation GPUImageOpenGLESContext
 
 @synthesize context = _context;
+@synthesize currentShaderProgram = _currentShaderProgram;
+@synthesize contextQueue = _contextQueue;
+
+- (id)init;
+{
+    if (!(self = [super init]))
+    {
+		return nil;
+    }
+        
+    _contextQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.openGLESContextQueue", NULL);
+    
+    return self;
+}
 
 // Based on Colin Wheeler's example here: http://cocoasamurai.blogspot.com/2011/04/singletons-your-doing-them-wrong.html
 + (GPUImageOpenGLESContext *)sharedImageProcessingOpenGLESContext;
@@ -18,12 +32,33 @@
     return sharedImageProcessingOpenGLESContext;
 }
 
++ (dispatch_queue_t)sharedOpenGLESQueue;
+{
+    return [[self sharedImageProcessingOpenGLESContext] contextQueue];
+}
+
 + (void)useImageProcessingContext;
 {
     EAGLContext *imageProcessingContext = [[GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext] context];
     if ([EAGLContext currentContext] != imageProcessingContext)
     {
         [EAGLContext setCurrentContext:imageProcessingContext];
+    }
+}
+
++ (void)setActiveShaderProgram:(GLProgram *)shaderProgram;
+{
+    GPUImageOpenGLESContext *sharedContext = [GPUImageOpenGLESContext sharedImageProcessingOpenGLESContext];
+    EAGLContext *imageProcessingContext = [sharedContext context];
+    if ([EAGLContext currentContext] != imageProcessingContext)
+    {
+        [EAGLContext setCurrentContext:imageProcessingContext];
+    }
+    
+    if (sharedContext.currentShaderProgram != shaderProgram)
+    {
+        sharedContext.currentShaderProgram = shaderProgram;
+        [shaderProgram use];
     }
 }
 
@@ -98,6 +133,5 @@
     
     return _context;
 }
-
 
 @end
